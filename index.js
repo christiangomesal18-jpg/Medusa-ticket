@@ -1,3 +1,4 @@
+
 const {
   Client,
   GatewayIntentBits,
@@ -10,7 +11,10 @@ const {
   EmbedBuilder,
   REST,
   Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
 } = require("discord.js");
 
 const client = new Client({
@@ -19,7 +23,6 @@ const client = new Client({
 
 const TOKEN = process.env.TOKEN;
 
-// Cargos da equipe
 const STAFF_ROLE_IDS = [
   "1538561286571434086",
   "1541124069422792925",
@@ -27,6 +30,12 @@ const STAFF_ROLE_IDS = [
   "1541109454341415102",
   "1538561390049239161"
 ];
+
+function isStaff(interaction) {
+  return STAFF_ROLE_IDS.some(id =>
+    interaction.member.roles.cache.has(id)
+  );
+}
 
 // ==============================
 // BOT ONLINE
@@ -37,21 +46,19 @@ client.once("ready", async () => {
 
   const command = new SlashCommandBuilder()
     .setName("ticket")
-    .setDescription("Envia o painel de atendimento da Medusa Store.");
+    .setDescription("Envia o painel de atendimento.");
 
   const rest = new REST({ version: "10" }).setToken(TOKEN);
 
   try {
     await rest.put(
       Routes.applicationCommands(client.user.id),
-      {
-        body: [command.toJSON()]
-      }
+      { body: [command.toJSON()] }
     );
 
     console.log("Comando /ticket registrado!");
   } catch (error) {
-    console.error("Erro ao registrar /ticket:", error);
+    console.error(error);
   }
 });
 
@@ -59,10 +66,10 @@ client.once("ready", async () => {
 // INTERAÇÕES
 // ==============================
 
-client.on("interactionCreate", async (interaction) => {
+client.on("interactionCreate", async interaction => {
 
   // ==============================
-  // /TICKET
+  // /ticket
   // ==============================
 
   if (
@@ -74,31 +81,18 @@ client.on("interactionCreate", async (interaction) => {
       .setTitle("🎫・CENTRAL DE ATENDIMENTO")
       .setDescription(
         "**MEDUSA STORE**\n\n" +
-
         "Seja bem-vindo à **Medusa Store**.\n\n" +
-
         "Nossa central de atendimento foi criada para oferecer " +
         "um suporte rápido, organizado e seguro.\n\n" +
-
         "**📌 COMO FUNCIONA?**\n" +
-        "Selecione uma das opções abaixo e abra um atendimento " +
-        "com nossa equipe. Após abrir o ticket, explique sua " +
-        "situação com o máximo de detalhes possível e aguarde " +
-        "um membro da equipe.\n\n" +
-
+        "Selecione uma opção abaixo para iniciar seu atendimento. " +
+        "Após abrir o ticket, explique sua situação e aguarde nossa equipe.\n\n" +
         "**🔒 PRIVACIDADE**\n" +
-        "Todos os atendimentos são realizados em canais privados, " +
-        "acessíveis apenas ao cliente e à equipe responsável.\n\n" +
-
+        "Todos os atendimentos são realizados em canais privados.\n\n" +
         "**⚠️ ATENÇÃO**\n" +
-        "Evite abrir tickets desnecessários ou duplicados. " +
-        "Escolha a categoria correta para que possamos encaminhar " +
-        "seu atendimento da melhor maneira.\n\n" +
-
+        "Evite abrir tickets duplicados ou desnecessários.\n\n" +
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-        "**➡️ Clique no botão abaixo para visualizar as opções " +
-        "de atendimento.**"
+        "**➡️ Clique abaixo para visualizar as opções.**"
       )
       .setFooter({
         text: "Medusa Store • Atendimento"
@@ -109,19 +103,18 @@ client.on("interactionCreate", async (interaction) => {
       .setLabel("➡️ Clique aqui para ver as opções")
       .setStyle(ButtonStyle.Primary);
 
-    const row = new ActionRowBuilder()
-      .addComponents(button);
-
     await interaction.reply({
       embeds: [embed],
-      components: [row]
+      components: [
+        new ActionRowBuilder().addComponents(button)
+      ]
     });
 
     return;
   }
 
   // ==============================
-  // MENU DE CATEGORIAS
+  // MENU
   // ==============================
 
   if (
@@ -177,12 +170,11 @@ client.on("interactionCreate", async (interaction) => {
         }
       );
 
-    const row = new ActionRowBuilder()
-      .addComponents(menu);
-
     await interaction.reply({
       content: "🎫 **Selecione o tipo de atendimento:**",
-      components: [row],
+      components: [
+        new ActionRowBuilder().addComponents(menu)
+      ],
       ephemeral: true
     });
 
@@ -200,7 +192,7 @@ client.on("interactionCreate", async (interaction) => {
 
     const category = interaction.values[0];
 
-    const categoryNames = {
+    const names = {
       middleman: "middleman",
       suporte: "suporte",
       outros: "outros",
@@ -210,7 +202,7 @@ client.on("interactionCreate", async (interaction) => {
       seller: "seller"
     };
 
-    const categoryDisplay = {
+    const display = {
       middleman: "⚡ Middleman",
       suporte: "🛠️ Suporte",
       outros: "📦 Outros",
@@ -220,67 +212,23 @@ client.on("interactionCreate", async (interaction) => {
       seller: "🛒 Seller"
     };
 
-    const channelName =
-      `${categoryNames[category]}-${interaction.user.username}`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "");
-
-    // Impede tickets duplicados
-    const existingTicket = interaction.guild.channels.cache.find(
+    const existing = interaction.guild.channels.cache.find(
       channel =>
         channel.type === ChannelType.GuildText &&
-        channel.topic &&
-        channel.topic.includes(`USER:${interaction.user.id}`)
+        channel.topic?.includes(`USER:${interaction.user.id}`)
     );
 
-    if (existingTicket) {
-
-      await interaction.reply({
-        content: `❌ Você já possui um ticket aberto: ${existingTicket}`,
+    if (existing) {
+      return interaction.reply({
+        content: `❌ Você já possui um ticket aberto: ${existing}`,
         ephemeral: true
       });
-
-      return;
     }
 
-    // ==============================
-    // PERMISSÕES
-    // ==============================
-
-    const permissionOverwrites = [
-      {
-        id: interaction.guild.id,
-        deny: [
-          PermissionFlagsBits.ViewChannel
-        ]
-      },
-
-      {
-        id: interaction.user.id,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory
-        ]
-      },
-
-      ...STAFF_ROLE_IDS.map(roleId => ({
-        id: roleId,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.ManageMessages
-        ]
-      }))
-    ];
-
-    // ==============================
-    // CRIAR CANAL
-    // ==============================
-
     const channel = await interaction.guild.channels.create({
-      name: channelName,
+      name: `${names[category]}-${interaction.user.username}`
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, ""),
       type: ChannelType.GuildText,
 
       topic:
@@ -288,75 +236,76 @@ client.on("interactionCreate", async (interaction) => {
         `CATEGORY:${category} | ` +
         `CLAIMED:null`,
 
-      permissionOverwrites
+      permissionOverwrites: [
+        {
+          id: interaction.guild.id,
+          deny: [PermissionFlagsBits.ViewChannel]
+        },
+
+        {
+          id: interaction.user.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory
+          ]
+        },
+
+        ...STAFF_ROLE_IDS.map(id => ({
+          id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.ManageMessages
+          ]
+        }))
+      ]
     });
 
-    // ==============================
-    // EMBED DO TICKET
-    // ==============================
-
-    const ticketEmbed = new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setTitle("🎫・ATENDIMENTO | MEDUSA STORE")
       .setDescription(
         `Olá ${interaction.user}!\n\n` +
-
-        `**📂 Categoria**\n` +
-        `${categoryDisplay[category]}\n\n` +
-
-        `**👤 Responsável**\n` +
-        `Nenhum staff assumiu ainda.\n\n` +
-
+        `**📂 Categoria**\n${display[category]}\n\n` +
+        `**👤 Responsável**\nNenhum staff assumiu ainda.\n\n` +
         `**📌 Atendimento**\n` +
-        `Explique sua situação com detalhes e aguarde ` +
-        `um membro da equipe.\n\n` +
-
+        `Explique sua situação com detalhes e aguarde nossa equipe.\n\n` +
         `🔒 Este atendimento é privado.`
-      )
-      .setFooter({
-        text: "Medusa Store • Sistema de Tickets"
-      });
-
-    // ==============================
-    // BOTÕES
-    // ==============================
-
-    const claimButton = new ButtonBuilder()
-      .setCustomId("claim_ticket")
-      .setLabel("👤 Assumir Ticket")
-      .setStyle(ButtonStyle.Success);
-
-    const releaseButton = new ButtonBuilder()
-      .setCustomId("release_ticket")
-      .setLabel("🔓 Liberar Ticket")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true);
-
-    const closeButton = new ButtonBuilder()
-      .setCustomId("close_ticket")
-      .setLabel("🔒 Fechar Ticket")
-      .setStyle(ButtonStyle.Danger);
-
-    const row = new ActionRowBuilder()
-      .addComponents(
-        claimButton,
-        releaseButton,
-        closeButton
       );
 
-    const staffMentions = STAFF_ROLE_IDS
+    const buttons = new ActionRowBuilder().addComponents(
+
+      new ButtonBuilder()
+        .setCustomId("claim_ticket")
+        .setLabel("👤 Assumir")
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId("add_member")
+        .setLabel("➕ Adicionar Membro")
+        .setStyle(ButtonStyle.Primary),
+
+      new ButtonBuilder()
+        .setCustomId("release_ticket")
+        .setLabel("🔓 Liberar")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+
+      new ButtonBuilder()
+        .setCustomId("close_ticket")
+        .setLabel("🔒 Fechar")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    const mentions = STAFF_ROLE_IDS
       .map(id => `<@&${id}>`)
       .join(" ");
 
     await channel.send({
-      content: `${interaction.user} ${staffMentions}`,
-
-      embeds: [
-        ticketEmbed
-      ],
-
-      components: [
-        row
-      ]
+      content: `${interaction.user} ${mentions}`,
+      embeds: [embed],
+      components: [buttons]
     });
 
     await interaction.reply({
@@ -368,7 +317,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   // ==============================
-  // ASSUMIR TICKET
+  // ASSUMIR
   // ==============================
 
   if (
@@ -376,37 +325,24 @@ client.on("interactionCreate", async (interaction) => {
     interaction.customId === "claim_ticket"
   ) {
 
-    const isStaff = STAFF_ROLE_IDS.some(roleId =>
-      interaction.member.roles.cache.has(roleId)
-    );
-
-    if (!isStaff) {
-
+    if (!isStaff(interaction)) {
       return interaction.reply({
-        content: "❌ Apenas membros da equipe podem assumir tickets.",
+        content: "❌ Apenas a equipe pode assumir tickets.",
         ephemeral: true
       });
     }
 
-    const topic =
-      interaction.channel.topic || "";
+    const topic = interaction.channel.topic || "";
+    const match = topic.match(/CLAIMED:([^ ]+)/);
+    const claimed = match ? match[1] : "null";
 
-    const match =
-      topic.match(/CLAIMED:([^ ]+)/);
-
-    const currentClaim =
-      match ? match[1] : "null";
-
-    if (currentClaim !== "null") {
-
+    if (claimed !== "null") {
       return interaction.reply({
-        content:
-          `❌ Este ticket já foi assumido por <@${currentClaim}>.`,
+        content: `❌ Este ticket já foi assumido por <@${claimed}>.`,
         ephemeral: true
       });
     }
 
-    // Salva o responsável
     await interaction.channel.setTopic(
       topic.replace(
         /CLAIMED:[^ ]+/,
@@ -414,77 +350,104 @@ client.on("interactionCreate", async (interaction) => {
       )
     );
 
-    const messages =
-      await interaction.channel.messages.fetch({
-        limit: 20
-      });
-
-    const botMessage =
-      messages.find(
-        message =>
-          message.author.id === client.user.id &&
-          message.embeds.length > 0
-      );
-
-    if (botMessage) {
-
-      const embed =
-        EmbedBuilder.from(
-          botMessage.embeds[0]
-        );
-
-      const description =
-        botMessage.embeds[0].description || "";
-
-      embed.setDescription(
-        description.replace(
-          "Nenhum staff assumiu ainda.",
-          `${interaction.user}`
-        )
-      );
-
-      const claimButton =
-        new ButtonBuilder()
-          .setCustomId("claim_ticket")
-          .setLabel("👤 Ticket Assumido")
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(true);
-
-      const releaseButton =
-        new ButtonBuilder()
-          .setCustomId("release_ticket")
-          .setLabel("🔓 Liberar Ticket")
-          .setStyle(ButtonStyle.Secondary);
-
-      const closeButton =
-        new ButtonBuilder()
-          .setCustomId("close_ticket")
-          .setLabel("🔒 Fechar Ticket")
-          .setStyle(ButtonStyle.Danger);
-
-      const row =
-        new ActionRowBuilder()
-          .addComponents(
-            claimButton,
-            releaseButton,
-            closeButton
-          );
-
-      await botMessage.edit({
-        embeds: [embed],
-        components: [row]
-      });
-    }
-
     await interaction.reply(
-      `👤 ${interaction.user} **assumiu este ticket** e agora é o responsável pelo atendimento.`
+      `👤 ${interaction.user} **assumiu este ticket** e agora é o responsável.`
     );
 
     return;
   }
 
   // ==============================
-  // LIBERAR TICKET
+  // ADICIONAR MEMBRO
+  // ==============================
+
+  if (
+    interaction.isButton() &&
+    interaction.customId === "add_member"
+  ) {
+
+    if (!isStaff(interaction)) {
+      return interaction.reply({
+        content: "❌ Apenas a equipe pode adicionar membros.",
+        ephemeral: true
+      });
+    }
+
+    const modal = new ModalBuilder()
+      .setCustomId("add_member_modal")
+      .setTitle("Adicionar Membro");
+
+    const userIdInput = new TextInputBuilder()
+      .setCustomId("user_id")
+      .setLabel("ID do usuário")
+      .setPlaceholder("Ex: 123456789012345678")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMinLength(17)
+      .setMaxLength(20);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(userIdInput)
+    );
+
+    await interaction.showModal(modal);
+
+    return;
+  }
+
+  // ==============================
+  // MODAL ADICIONAR MEMBRO
+  // ==============================
+
+  if (
+    interaction.isModalSubmit() &&
+    interaction.customId === "add_member_modal"
+  ) {
+
+    if (!isStaff(interaction)) {
+      return interaction.reply({
+        content: "❌ Apenas a equipe pode adicionar membros.",
+        ephemeral: true
+      });
+    }
+
+    const userId =
+      interaction.fields.getTextInputValue("user_id").trim();
+
+    try {
+
+      const member =
+        await interaction.guild.members.fetch(userId);
+
+      await interaction.channel.permissionOverwrites.edit(
+        member.id,
+        {
+          ViewChannel: true,
+          SendMessages: true,
+          ReadMessageHistory: true
+        }
+      );
+
+      await interaction.reply(
+        `✅ ${member} foi adicionado ao ticket.`
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      await interaction.reply({
+        content:
+          "❌ Não encontrei esse usuário neste servidor. Verifique o ID.",
+        ephemeral: true
+      });
+    }
+
+    return;
+  }
+
+  // ==============================
+  // LIBERAR
   // ==============================
 
   if (
@@ -492,46 +455,27 @@ client.on("interactionCreate", async (interaction) => {
     interaction.customId === "release_ticket"
   ) {
 
-    const isStaff =
-      STAFF_ROLE_IDS.some(roleId =>
-        interaction.member.roles.cache.has(roleId)
-      );
-
-    if (!isStaff) {
-
+    if (!isStaff(interaction)) {
       return interaction.reply({
-        content:
-          "❌ Apenas membros da equipe podem liberar tickets.",
+        content: "❌ Apenas a equipe pode liberar tickets.",
         ephemeral: true
       });
     }
 
-    const topic =
-      interaction.channel.topic || "";
+    const topic = interaction.channel.topic || "";
+    const match = topic.match(/CLAIMED:([^ ]+)/);
+    const claimed = match ? match[1] : "null";
 
-    const match =
-      topic.match(/CLAIMED:([^ ]+)/);
-
-    const currentClaim =
-      match ? match[1] : "null";
-
-    if (currentClaim === "null") {
-
+    if (claimed === "null") {
       return interaction.reply({
-        content:
-          "❌ Este ticket não está assumido.",
+        content: "❌ Este ticket não está assumido.",
         ephemeral: true
       });
     }
 
-    if (
-      currentClaim !==
-      interaction.user.id
-    ) {
-
+    if (claimed !== interaction.user.id) {
       return interaction.reply({
-        content:
-          "❌ Apenas o responsável atual pode liberar este ticket.",
+        content: "❌ Apenas o responsável pode liberar o ticket.",
         ephemeral: true
       });
     }
@@ -543,77 +487,15 @@ client.on("interactionCreate", async (interaction) => {
       )
     );
 
-    const messages =
-      await interaction.channel.messages.fetch({
-        limit: 20
-      });
-
-    const botMessage =
-      messages.find(
-        message =>
-          message.author.id === client.user.id &&
-          message.embeds.length > 0
-      );
-
-    if (botMessage) {
-
-      const embed =
-        EmbedBuilder.from(
-          botMessage.embeds[0]
-        );
-
-      const description =
-        botMessage.embeds[0].description || "";
-
-      embed.setDescription(
-        description.replace(
-          /\*\*Responsável\*\*\n.+/,
-          "**👤 Responsável**\nNenhum staff assumiu ainda."
-        )
-      );
-
-      const claimButton =
-        new ButtonBuilder()
-          .setCustomId("claim_ticket")
-          .setLabel("👤 Assumir Ticket")
-          .setStyle(ButtonStyle.Success);
-
-      const releaseButton =
-        new ButtonBuilder()
-          .setCustomId("release_ticket")
-          .setLabel("🔓 Liberar Ticket")
-          .setStyle(ButtonStyle.Secondary)
-          .setDisabled(true);
-
-      const closeButton =
-        new ButtonBuilder()
-          .setCustomId("close_ticket")
-          .setLabel("🔒 Fechar Ticket")
-          .setStyle(ButtonStyle.Danger);
-
-      const row =
-        new ActionRowBuilder()
-          .addComponents(
-            claimButton,
-            releaseButton,
-            closeButton
-          );
-
-      await botMessage.edit({
-        embeds: [embed],
-        components: [row]
-      });
-    }
-
     await interaction.reply(
-      `🔓 ${interaction.user} **liberou o ticket**. Outro membro da equipe pode assumi-lo.`
+      `🔓 ${interaction.user} **liberou o ticket**.`
     );
 
     return;
   }
 
   // ==============================
-  // FECHAR TICKET
+  // FECHAR
   // ==============================
 
   if (
@@ -621,28 +503,15 @@ client.on("interactionCreate", async (interaction) => {
     interaction.customId === "close_ticket"
   ) {
 
-    const isStaff =
-      STAFF_ROLE_IDS.some(roleId =>
-        interaction.member.roles.cache.has(roleId)
-      );
+    const staff = isStaff(interaction);
 
-    const topic =
-      interaction.channel.topic || "";
+    const topic = interaction.channel.topic || "";
+    const match = topic.match(/USER:(\d+)/);
+    const owner = match ? match[1] : null;
 
-    const match =
-      topic.match(/USER:(\d+)/);
-
-    const ticketOwner =
-      match ? match[1] : null;
-
-    const isOwner =
-      ticketOwner === interaction.user.id;
-
-    if (!isStaff && !isOwner) {
-
+    if (!staff && owner !== interaction.user.id) {
       return interaction.reply({
-        content:
-          "❌ Você não pode fechar este ticket.",
+        content: "❌ Você não pode fechar este ticket.",
         ephemeral: true
       });
     }
@@ -652,11 +521,7 @@ client.on("interactionCreate", async (interaction) => {
     );
 
     setTimeout(() => {
-
-      interaction.channel
-        .delete()
-        .catch(() => {});
-
+      interaction.channel.delete().catch(() => {});
     }, 5000);
 
     return;
