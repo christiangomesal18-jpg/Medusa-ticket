@@ -1,4 +1,3 @@
-
 const {
   Client,
   GatewayIntentBits,
@@ -349,5 +348,323 @@ client.on("interactionCreate", async (interaction) => {
       .join(" ");
 
     await channel.send({
-      content: `${
-    
+      content: `${interaction.user} ${staffMentions}`,
+
+      embeds: [
+        ticketEmbed
+      ],
+
+      components: [
+        row
+      ]
+    });
+
+    await interaction.reply({
+      content: `✅ Seu ticket foi criado: ${channel}`,
+      ephemeral: true
+    });
+
+    return;
+  }
+
+  // ==============================
+  // ASSUMIR TICKET
+  // ==============================
+
+  if (
+    interaction.isButton() &&
+    interaction.customId === "claim_ticket"
+  ) {
+
+    const isStaff = STAFF_ROLE_IDS.some(roleId =>
+      interaction.member.roles.cache.has(roleId)
+    );
+
+    if (!isStaff) {
+
+      return interaction.reply({
+        content: "❌ Apenas membros da equipe podem assumir tickets.",
+        ephemeral: true
+      });
+    }
+
+    const topic =
+      interaction.channel.topic || "";
+
+    const match =
+      topic.match(/CLAIMED:([^ ]+)/);
+
+    const currentClaim =
+      match ? match[1] : "null";
+
+    if (currentClaim !== "null") {
+
+      return interaction.reply({
+        content:
+          `❌ Este ticket já foi assumido por <@${currentClaim}>.`,
+        ephemeral: true
+      });
+    }
+
+    // Salva o responsável
+    await interaction.channel.setTopic(
+      topic.replace(
+        /CLAIMED:[^ ]+/,
+        `CLAIMED:${interaction.user.id}`
+      )
+    );
+
+    const messages =
+      await interaction.channel.messages.fetch({
+        limit: 20
+      });
+
+    const botMessage =
+      messages.find(
+        message =>
+          message.author.id === client.user.id &&
+          message.embeds.length > 0
+      );
+
+    if (botMessage) {
+
+      const embed =
+        EmbedBuilder.from(
+          botMessage.embeds[0]
+        );
+
+      const description =
+        botMessage.embeds[0].description || "";
+
+      embed.setDescription(
+        description.replace(
+          "Nenhum staff assumiu ainda.",
+          `${interaction.user}`
+        )
+      );
+
+      const claimButton =
+        new ButtonBuilder()
+          .setCustomId("claim_ticket")
+          .setLabel("👤 Ticket Assumido")
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(true);
+
+      const releaseButton =
+        new ButtonBuilder()
+          .setCustomId("release_ticket")
+          .setLabel("🔓 Liberar Ticket")
+          .setStyle(ButtonStyle.Secondary);
+
+      const closeButton =
+        new ButtonBuilder()
+          .setCustomId("close_ticket")
+          .setLabel("🔒 Fechar Ticket")
+          .setStyle(ButtonStyle.Danger);
+
+      const row =
+        new ActionRowBuilder()
+          .addComponents(
+            claimButton,
+            releaseButton,
+            closeButton
+          );
+
+      await botMessage.edit({
+        embeds: [embed],
+        components: [row]
+      });
+    }
+
+    await interaction.reply(
+      `👤 ${interaction.user} **assumiu este ticket** e agora é o responsável pelo atendimento.`
+    );
+
+    return;
+  }
+
+  // ==============================
+  // LIBERAR TICKET
+  // ==============================
+
+  if (
+    interaction.isButton() &&
+    interaction.customId === "release_ticket"
+  ) {
+
+    const isStaff =
+      STAFF_ROLE_IDS.some(roleId =>
+        interaction.member.roles.cache.has(roleId)
+      );
+
+    if (!isStaff) {
+
+      return interaction.reply({
+        content:
+          "❌ Apenas membros da equipe podem liberar tickets.",
+        ephemeral: true
+      });
+    }
+
+    const topic =
+      interaction.channel.topic || "";
+
+    const match =
+      topic.match(/CLAIMED:([^ ]+)/);
+
+    const currentClaim =
+      match ? match[1] : "null";
+
+    if (currentClaim === "null") {
+
+      return interaction.reply({
+        content:
+          "❌ Este ticket não está assumido.",
+        ephemeral: true
+      });
+    }
+
+    if (
+      currentClaim !==
+      interaction.user.id
+    ) {
+
+      return interaction.reply({
+        content:
+          "❌ Apenas o responsável atual pode liberar este ticket.",
+        ephemeral: true
+      });
+    }
+
+    await interaction.channel.setTopic(
+      topic.replace(
+        /CLAIMED:[^ ]+/,
+        "CLAIMED:null"
+      )
+    );
+
+    const messages =
+      await interaction.channel.messages.fetch({
+        limit: 20
+      });
+
+    const botMessage =
+      messages.find(
+        message =>
+          message.author.id === client.user.id &&
+          message.embeds.length > 0
+      );
+
+    if (botMessage) {
+
+      const embed =
+        EmbedBuilder.from(
+          botMessage.embeds[0]
+        );
+
+      const description =
+        botMessage.embeds[0].description || "";
+
+      embed.setDescription(
+        description.replace(
+          /\*\*Responsável\*\*\n.+/,
+          "**👤 Responsável**\nNenhum staff assumiu ainda."
+        )
+      );
+
+      const claimButton =
+        new ButtonBuilder()
+          .setCustomId("claim_ticket")
+          .setLabel("👤 Assumir Ticket")
+          .setStyle(ButtonStyle.Success);
+
+      const releaseButton =
+        new ButtonBuilder()
+          .setCustomId("release_ticket")
+          .setLabel("🔓 Liberar Ticket")
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true);
+
+      const closeButton =
+        new ButtonBuilder()
+          .setCustomId("close_ticket")
+          .setLabel("🔒 Fechar Ticket")
+          .setStyle(ButtonStyle.Danger);
+
+      const row =
+        new ActionRowBuilder()
+          .addComponents(
+            claimButton,
+            releaseButton,
+            closeButton
+          );
+
+      await botMessage.edit({
+        embeds: [embed],
+        components: [row]
+      });
+    }
+
+    await interaction.reply(
+      `🔓 ${interaction.user} **liberou o ticket**. Outro membro da equipe pode assumi-lo.`
+    );
+
+    return;
+  }
+
+  // ==============================
+  // FECHAR TICKET
+  // ==============================
+
+  if (
+    interaction.isButton() &&
+    interaction.customId === "close_ticket"
+  ) {
+
+    const isStaff =
+      STAFF_ROLE_IDS.some(roleId =>
+        interaction.member.roles.cache.has(roleId)
+      );
+
+    const topic =
+      interaction.channel.topic || "";
+
+    const match =
+      topic.match(/USER:(\d+)/);
+
+    const ticketOwner =
+      match ? match[1] : null;
+
+    const isOwner =
+      ticketOwner === interaction.user.id;
+
+    if (!isStaff && !isOwner) {
+
+      return interaction.reply({
+        content:
+          "❌ Você não pode fechar este ticket.",
+        ephemeral: true
+      });
+    }
+
+    await interaction.reply(
+      "🔒 Este ticket será fechado em **5 segundos**."
+    );
+
+    setTimeout(() => {
+
+      interaction.channel
+        .delete()
+        .catch(() => {});
+
+    }, 5000);
+
+    return;
+  }
+});
+
+// ==============================
+// LOGIN
+// ==============================
+
+client.login(TOKEN);
