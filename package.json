@@ -1,6 +1,7 @@
 {
   "name": "medusa-ticket",
   "version": "1.0.0",
+  "description": "Bot de tickets Medusa Store",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -8,4 +9,5 @@
   "dependencies": {
     "discord.js": "^14.21.0"
   }
+}
 }
