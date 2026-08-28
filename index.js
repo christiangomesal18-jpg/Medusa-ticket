@@ -1,9 +1,8 @@
 const {
     Client,
     GatewayIntentBits,
-    Partials,
-    ChannelType,
     PermissionFlagsBits,
+    ChannelType,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -14,16 +13,18 @@ const {
     TextInputStyle
 } = require("discord.js");
 
-// =====================================================
-// VARIABLES
-// =====================================================
-
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
-// =====================================================
-// CLIENT
-// =====================================================
+if (!TOKEN) {
+    console.log("❌ TOKEN não encontrado nas Variables.");
+    process.exit(1);
+}
+
+if (!CLIENT_ID) {
+    console.log("❌ CLIENT_ID não encontrado nas Variables.");
+    process.exit(1);
+}
 
 const client = new Client({
     intents: [
@@ -31,8 +32,11 @@ const client = new Client({
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
-    ],
-    partials: [Partials.Channel]
+    ]
+});
+
+client.once("ready", () => {
+    console.log(`✅ ${client.user.tag} está online!`);
 });
 
 // =====================================================
@@ -47,17 +51,6 @@ function isStaff(member) {
 }
 
 // =====================================================
-// READY
-// =====================================================
-
-client.once("ready", () => {
-    console.log("=================================");
-    console.log(`✅ Bot online: ${client.user.tag}`);
-    console.log(`🆔 Client ID: ${CLIENT_ID}`);
-    console.log("=================================");
-});
-
-// =====================================================
 // PAINEL
 // =====================================================
 
@@ -67,8 +60,7 @@ async function enviarPainel(channel) {
         .setTitle("🎫 CENTRAL DE ATENDIMENTO")
         .setDescription(
             "Bem-vindo ao atendimento da **Medusa Store**!\n\n" +
-
-            "Selecione abaixo o assunto que deseja tratar.\n\n" +
+            "Selecione abaixo o assunto desejado.\n\n" +
 
             "╭━━━━━━━━━━━━━━━━━━━━━━╮\n" +
             "⚡ **Middleman**\n" +
@@ -91,11 +83,9 @@ async function enviarPainel(channel) {
 
             "🛒 **Seller**\n" +
             "Assuntos relacionados a vendas.\n" +
-            "╰━━━━━━━━━━━━━━━━━━━━━━╯\n\n" +
-
-            "🔒 **Atendimento seguro e organizado pela Staff.**"
+            "╰━━━━━━━━━━━━━━━━━━━━━━╯"
         )
-        .setColor("#6A0DAD")
+        .setColor(0x6A0DAD)
         .setFooter({
             text: "Medusa Store • Atendimento"
         });
@@ -103,7 +93,7 @@ async function enviarPainel(channel) {
     const menu = new StringSelectMenuBuilder()
         .setCustomId("ticket_categoria")
         .setPlaceholder("🎫 Selecione uma categoria")
-        .addOptions([
+        .addOptions(
             {
                 label: "Middleman",
                 description: "Solicitar um Middleman",
@@ -130,7 +120,7 @@ async function enviarPainel(channel) {
             },
             {
                 label: "Resgatar Recompensa",
-                description: "Resgatar sua recompensa",
+                description: "Resgatar recompensa",
                 value: "recompensa",
                 emoji: "🎁"
             },
@@ -142,11 +132,11 @@ async function enviarPainel(channel) {
             },
             {
                 label: "Seller",
-                description: "Assuntos relacionados a vendas",
+                description: "Assuntos de vendas",
                 value: "seller",
                 emoji: "🛒"
             }
-        ]);
+        );
 
     const row = new ActionRowBuilder()
         .addComponents(menu);
@@ -165,18 +155,15 @@ async function criarTicket(interaction, categoria) {
 
     const guild = interaction.guild;
 
-    // Verificar se já existe ticket
-    const ticketExistente = guild.channels.cache.find(
+    const existente = guild.channels.cache.find(
         channel =>
             channel.type === ChannelType.GuildText &&
             channel.topic === `ticket-${interaction.user.id}`
     );
 
-    if (ticketExistente) {
-
+    if (existente) {
         return interaction.reply({
-            content:
-                `❌ Você já possui um ticket aberto: ${ticketExistente}`,
+            content: `❌ Você já possui um ticket aberto: ${existente}`,
             ephemeral: true
         });
     }
@@ -193,33 +180,27 @@ async function criarTicket(interaction, categoria) {
 
     const nome = nomes[categoria] || "ticket";
 
-    // Criar ticket sem categoria
+    const nomeCanal =
+        `${nome}-${interaction.user.username}`
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "")
+        .slice(0, 90);
+
     const canal = await guild.channels.create({
-
-        name: `${nome}-${interaction.user.username}`
-            .toLowerCase()
-            .replace(/[^a-z0-9-]/g, "")
-            .slice(0, 90),
-
+        name: nomeCanal,
         type: ChannelType.GuildText,
-
         topic: `ticket-${interaction.user.id}`,
 
         permissionOverwrites: [
-
-            // @everyone não vê
             {
                 id: guild.roles.everyone.id,
-
                 deny: [
                     PermissionFlagsBits.ViewChannel
                 ]
             },
 
-            // Usuário que abriu
             {
                 id: interaction.user.id,
-
                 allow: [
                     PermissionFlagsBits.ViewChannel,
                     PermissionFlagsBits.SendMessages,
@@ -234,29 +215,12 @@ async function criarTicket(interaction, categoria) {
         .setTitle("🎫 TICKET ABERTO")
         .setDescription(
             `Olá ${interaction.user}!\n\n` +
-
             "Seu ticket foi criado com sucesso.\n\n" +
-
             `📌 **Categoria:** ${nome}\n` +
             `👤 **Usuário:** ${interaction.user}\n\n` +
-
-            "Aguarde um membro da Staff para realizar seu atendimento.\n\n" +
-
-            "╭━━━━━━━━━━━━━━━━━━━━━━╮\n" +
-            "👑 **ASSUMIR**\n" +
-            "Staff assume o atendimento.\n\n" +
-
-            "🔓 **LIBERAR**\n" +
-            "Libera o atendimento.\n\n" +
-
-            "👤 **ADICIONAR**\n" +
-            "Adiciona outro usuário pelo ID.\n\n" +
-
-            "🔒 **FECHAR**\n" +
-            "Fecha o ticket.\n" +
-            "╰━━━━━━━━━━━━━━━━━━━━━━╯"
+            "Aguarde um membro da Staff para realizar seu atendimento."
         )
-        .setColor("#6A0DAD")
+        .setColor(0x6A0DAD)
         .setFooter({
             text: "Medusa Store • Atendimento"
         });
@@ -296,7 +260,7 @@ async function criarTicket(interaction, categoria) {
     });
 
     await interaction.reply({
-        content: `✅ Seu ticket foi criado: ${canal}`,
+        content: `✅ Ticket criado: ${canal}`,
         ephemeral: true
     });
 }
@@ -309,49 +273,41 @@ client.on("interactionCreate", async interaction => {
 
     try {
 
-        // =================================================
-        // SELECT MENU
-        // =================================================
+        // ===============================================
+        // MENU DE TICKET
+        // ===============================================
 
         if (
             interaction.isStringSelectMenu() &&
             interaction.customId === "ticket_categoria"
         ) {
 
-            const categoria = interaction.values[0];
-
             await criarTicket(
                 interaction,
-                categoria
+                interaction.values[0]
             );
 
             return;
         }
 
-        // =================================================
+        // ===============================================
         // BOTÕES
-        // =================================================
+        // ===============================================
 
         if (interaction.isButton()) {
 
-            // =============================================
+            // -------------------------------------------
             // ASSUMIR
-            // =============================================
+            // -------------------------------------------
 
             if (interaction.customId === "assumir_ticket") {
 
                 if (!isStaff(interaction.member)) {
-
                     return interaction.reply({
-                        content:
-                            "❌ Você precisa ser Staff para assumir este ticket.",
+                        content: "❌ Apenas a Staff pode assumir tickets.",
                         ephemeral: true
                     });
                 }
-
-                await interaction.channel.setTopic(
-                    `${interaction.channel.topic}-assumido-${interaction.user.id}`
-                ).catch(() => {});
 
                 await interaction.reply({
                     content:
@@ -361,37 +317,34 @@ client.on("interactionCreate", async interaction => {
                 return;
             }
 
-            // =============================================
+            // -------------------------------------------
             // LIBERAR
-            // =============================================
+            // -------------------------------------------
 
             if (interaction.customId === "liberar_ticket") {
 
                 if (!isStaff(interaction.member)) {
-
                     return interaction.reply({
-                        content:
-                            "❌ Você precisa ser Staff para liberar este ticket.",
+                        content: "❌ Apenas a Staff pode liberar tickets.",
                         ephemeral: true
                     });
                 }
 
                 await interaction.reply({
                     content:
-                        "🔓 **Ticket liberado!** A Staff pode assumir novamente."
+                        "🔓 **Ticket liberado!**"
                 });
 
                 return;
             }
 
-            // =============================================
+            // -------------------------------------------
             // ADICIONAR
-            // =============================================
+            // -------------------------------------------
 
             if (interaction.customId === "adicionar_membro") {
 
                 if (!isStaff(interaction.member)) {
-
                     return interaction.reply({
                         content:
                             "❌ Apenas a Staff pode adicionar membros.",
@@ -407,7 +360,7 @@ client.on("interactionCreate", async interaction => {
                     .setCustomId("usuario_id")
                     .setLabel("ID do usuário")
                     .setPlaceholder(
-                        "Ex: 123456789012345678"
+                        "Digite o ID do usuário"
                     )
                     .setStyle(TextInputStyle.Short)
                     .setRequired(true)
@@ -424,14 +377,13 @@ client.on("interactionCreate", async interaction => {
                 return;
             }
 
-            // =============================================
+            // -------------------------------------------
             // FECHAR
-            // =============================================
+            // -------------------------------------------
 
             if (interaction.customId === "fechar_ticket") {
 
                 if (!isStaff(interaction.member)) {
-
                     return interaction.reply({
                         content:
                             "❌ Apenas a Staff pode fechar tickets.",
@@ -449,10 +401,7 @@ client.on("interactionCreate", async interaction => {
                     try {
                         await interaction.channel.delete();
                     } catch (error) {
-                        console.error(
-                            "Erro ao apagar ticket:",
-                            error
-                        );
+                        console.log(error);
                     }
 
                 }, 5000);
@@ -461,9 +410,9 @@ client.on("interactionCreate", async interaction => {
             }
         }
 
-        // =================================================
-        // MODAL ADICIONAR MEMBRO
-        // =================================================
+        // ===============================================
+        // MODAL
+        // ===============================================
 
         if (
             interaction.isModalSubmit() &&
@@ -471,7 +420,6 @@ client.on("interactionCreate", async interaction => {
         ) {
 
             if (!isStaff(interaction.member)) {
-
                 return interaction.reply({
                     content:
                         "❌ Apenas a Staff pode adicionar membros.",
@@ -479,16 +427,16 @@ client.on("interactionCreate", async interaction => {
                 });
             }
 
-            const userId = interaction.fields
-                .getTextInputValue("usuario_id")
-                .trim();
+            const userId =
+                interaction.fields
+                    .getTextInputValue("usuario_id")
+                    .trim();
 
-            // Verificar ID
             if (!/^\d{17,20}$/.test(userId)) {
 
                 return interaction.reply({
                     content:
-                        "❌ O ID informado é inválido.",
+                        "❌ ID de usuário inválido.",
                     ephemeral: true
                 });
             }
@@ -498,21 +446,17 @@ client.on("interactionCreate", async interaction => {
             try {
 
                 membro =
-                    await interaction.guild.members.fetch(
-                        userId
-                    );
+                    await interaction.guild.members.fetch(userId);
 
-            } catch (error) {
+            } catch {
 
                 return interaction.reply({
                     content:
-                        "❌ Não encontrei esse usuário no servidor.\n\n" +
-                        "Verifique se o ID está correto.",
+                        "❌ Não encontrei esse usuário no servidor.",
                     ephemeral: true
                 });
             }
 
-            // Adicionar permissões
             await interaction.channel.permissionOverwrites.edit(
                 membro.id,
                 {
@@ -530,7 +474,7 @@ client.on("interactionCreate", async interaction => {
 
             await interaction.channel.send({
                 content:
-                    `👤 ${membro} foi adicionado ao ticket por ${interaction.user}.`
+                    `👤 ${membro} foi adicionado por ${interaction.user}.`
             });
 
             return;
@@ -538,10 +482,7 @@ client.on("interactionCreate", async interaction => {
 
     } catch (error) {
 
-        console.error(
-            "❌ ERRO NA INTERAÇÃO:",
-            error
-        );
+        console.error("❌ ERRO:", error);
 
         if (
             !interaction.replied &&
@@ -553,24 +494,27 @@ client.on("interactionCreate", async interaction => {
                     "❌ Ocorreu um erro ao executar essa ação.",
                 ephemeral: true
             }).catch(() => {});
+
         }
     }
 });
 
 // =====================================================
-// COMANDO !painel
+// COMANDO !PAINEL
 // =====================================================
 
 client.on("messageCreate", async message => {
 
     if (message.author.bot) return;
 
-    if (message.content !== "!painel") return;
+    if (message.content.toLowerCase() !== "!painel") {
+        return;
+    }
 
     if (!isStaff(message.member)) {
 
         return message.reply(
-            "❌ Você precisa ter permissão de Staff para usar esse comando."
+            "❌ Você não possui permissão para usar esse comando."
         );
     }
 
@@ -582,21 +526,5 @@ client.on("messageCreate", async message => {
 // =====================================================
 // LOGIN
 // =====================================================
-
-if (!TOKEN) {
-    console.error(
-        "❌ A variável TOKEN não foi encontrada!"
-    );
-
-    process.exit(1);
-}
-
-if (!CLIENT_ID) {
-    console.error(
-        "❌ A variável CLIENT_ID não foi encontrada!"
-    );
-
-    process.exit(1);
-}
 
 client.login(TOKEN);
