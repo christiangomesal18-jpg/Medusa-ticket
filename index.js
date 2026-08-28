@@ -1,817 +1,817 @@
 const {
   Client,
   GatewayIntentBits,
-  ChannelType,
   PermissionFlagsBits,
+  ChannelType,
+  EmbedBuilder,
   ActionRowBuilder,
-  StringSelectMenuBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
-  REST,
-  Routes,
+  StringSelectMenuBuilder,
   SlashCommandBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle
-} = require("discord.js");
+  REST,
+  Routes
+} = require('discord.js');
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
+// ================================
+// CONFIGURAÇÃO
+// ================================
 
 const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
 
-// ========================================
-// CARGOS DA STAFF
-// ========================================
+// ================================
+// CLIENT
+// ================================
 
-const STAFF_ROLE_IDS = [
-  "1538561286571434086",
-  "1541124069422792925",
-  "1541123399533731890",
-  "1541109454341415102",
-  "1538561390049239161"
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds
+  ]
+});
+
+// ================================
+// TICKETS
+// ================================
+
+const tickets = new Map();
+
+// ================================
+// CATEGORIAS
+// ================================
+
+const categorias = {
+
+  middleman: {
+    nome: 'Middleman',
+    emoji: '🔐'
+  },
+
+  suporte: {
+    nome: 'Suporte',
+    emoji: '🛠️'
+  },
+
+  outros: {
+    nome: 'Outros',
+    emoji: '📦'
+  },
+
+  parceria: {
+    nome: 'Parceria',
+    emoji: '🤝'
+  },
+
+  recompensa: {
+    nome: 'Resgatar Recompensa',
+    emoji: '🎁'
+  },
+
+  duvidas: {
+    nome: 'Dúvidas',
+    emoji: '❓'
+  },
+
+  seller: {
+    nome: 'Seller',
+    emoji: '🛒'
+  }
+
+};
+
+// ================================
+// COMANDO
+// ================================
+
+const commands = [
+
+  new SlashCommandBuilder()
+    .setName('ticket')
+    .setDescription('Envia o painel da Medusa Ticket.')
+    .toJSON()
+
 ];
 
-// ========================================
-// VERIFICAR STAFF
-// ========================================
-
-function isStaff(interaction) {
-  return STAFF_ROLE_IDS.some(roleId =>
-    interaction.member.roles.cache.has(roleId)
-  );
-}
-
-// ========================================
+// ================================
 // BOT ONLINE
-// ========================================
+// ================================
 
-client.once("ready", async () => {
-  console.log(`Bot online como ${client.user.tag}`);
+client.once('clientReady', async () => {
 
-  const command = new SlashCommandBuilder()
-    .setName("ticket")
-    .setDescription("Envia o painel de atendimento da Medusa Store.");
+  console.log(`🪼 BOT ONLINE: ${client.user.tag}`);
 
   const rest = new REST({
-    version: "10"
+    version: '10'
   }).setToken(TOKEN);
 
   try {
+
     await rest.put(
-      Routes.applicationCommands(client.user.id),
+      Routes.applicationCommands(CLIENT_ID),
       {
-        body: [command.toJSON()]
+        body: commands
       }
     );
 
-    console.log("Comando /ticket registrado!");
+    console.log('✅ COMANDO /TICKET REGISTRADO');
+
   } catch (error) {
-    console.error("Erro ao registrar comando:", error);
+
+    console.error(
+      '❌ Erro ao registrar comando:',
+      error
+    );
+
   }
+
 });
 
-// ========================================
+// ================================
 // INTERAÇÕES
-// ========================================
+// ================================
 
-client.on("interactionCreate", async interaction => {
+client.on('interactionCreate', async interaction => {
 
-  // ======================================
-  // /TICKET
-  // ======================================
+  try {
 
-  if (
-    interaction.isChatInputCommand() &&
-    interaction.commandName === "ticket"
-  ) {
+    // ==========================================
+    // /TICKET
+    // ==========================================
 
-    const embed = new EmbedBuilder()
-      .setTitle("🎫・CENTRAL DE ATENDIMENTO")
-      .setDescription(
-        "**MEDUSA STORE**\n\n" +
+    if (
+      interaction.isChatInputCommand() &&
+      interaction.commandName === 'ticket'
+    ) {
 
-        "Seja bem-vindo à **Medusa Store**.\n\n" +
+      const embed = new EmbedBuilder()
 
-        "Nossa central de atendimento foi criada para oferecer " +
-        "um suporte rápido, organizado e seguro.\n\n" +
+        .setTitle('🪼 MEDUSA TICKET')
 
-        "**📌 COMO FUNCIONA?**\n" +
-        "Selecione uma das opções abaixo para iniciar seu atendimento. " +
-        "Após abrir o ticket, explique sua situação e aguarde nossa equipe.\n\n" +
+        .setDescription(
 
-        "**🔒 PRIVACIDADE**\n" +
-        "Todos os atendimentos são realizados em canais privados.\n\n" +
+          '╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n' +
+          '│      🎫 **Central de Atendimento**\n' +
+          '│\n' +
+          '│ Precisa de ajuda? Abra um ticket\n' +
+          '│ e escolha uma das opções abaixo.\n' +
+          '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n' +
 
-        "**⚠️ ATENÇÃO**\n" +
-        "Evite abrir tickets duplicados ou desnecessários.\n\n" +
+          '╭╌╌╌⪼ 📌 **ATENDIMENTO**\n' +
+          '│\n' +
+          '╰╌╌╌≫ Escolha uma categoria abaixo:\n\n' +
 
-        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+          '🔐 **Middleman**\n' +
+          '> Trocas seguras e intermediadas.\n\n' +
 
-        "**➡️ Clique abaixo para visualizar as opções de atendimento.**"
-      )
-      .setFooter({
-        text: "Medusa Store • Atendimento"
-      });
+          '🛠️ **Suporte**\n' +
+          '> Problemas ou ajuda com a loja.\n\n' +
 
-    const button = new ButtonBuilder()
-      .setCustomId("ticket_options")
-      .setLabel("➡️ Clique aqui para ver as opções")
-      .setStyle(ButtonStyle.Primary);
+          '📦 **Outros**\n' +
+          '> Assuntos gerais.\n\n' +
 
-    const row = new ActionRowBuilder()
-      .addComponents(button);
+          '🤝 **Parceria**\n' +
+          '> Solicitações de parceria.\n\n' +
 
-    await interaction.reply({
-      embeds: [embed],
-      components: [row]
-    });
+          '🎁 **Resgatar Recompensa**\n' +
+          '> Resgate de prêmios e recompensas.\n\n' +
 
-    return;
-  }
+          '❓ **Dúvidas**\n' +
+          '> Tire suas dúvidas com nossa equipe.\n\n' +
 
-  // ======================================
-  // ABRIR MENU
-  // ======================================
+          '🛒 **Seller**\n' +
+          '> Assuntos relacionados a vendas.\n\n' +
 
-  if (
-    interaction.isButton() &&
-    interaction.customId === "ticket_options"
-  ) {
+          '━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
 
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("ticket_category")
-      .setPlaceholder("Selecione uma categoria")
-      .addOptions(
-        {
-          label: "Middleman",
-          description: "Solicitar um Middleman",
-          emoji: "⚡",
-          value: "middleman"
-        },
-        {
-          label: "Suporte",
-          description: "Precisa de ajuda?",
-          emoji: "🛠️",
-          value: "suporte"
-        },
-        {
-          label: "Outros",
-          description: "Outros assuntos",
-          emoji: "📦",
-          value: "outros"
-        },
-        {
-          label: "Parcerias",
-          description: "Solicitar parceria",
-          emoji: "🤝",
-          value: "parcerias"
-        },
-        {
-          label: "Resgatar Recompensa",
-          description: "Resgatar prêmio",
-          emoji: "🎁",
-          value: "recompensa"
-        },
-        {
-          label: "Dúvidas",
-          description: "Tirar dúvidas",
-          emoji: "❓",
-          value: "duvidas"
-        },
-        {
-          label: "Seller",
-          description: "Assuntos relacionados a vendas",
-          emoji: "🛒",
-          value: "seller"
-        }
-      );
+          '🔒 **Atendimento privado e organizado**\n' +
+          '⚡ **Equipe pronta para atender**\n' +
+          '🪼 **Medusa Store**\n\n' +
 
-    await interaction.reply({
-      content: "🎫 **Selecione o tipo de atendimento:**",
-      components: [
-        new ActionRowBuilder().addComponents(menu)
-      ],
-      ephemeral: true
-    });
+          '👇 **Clique abaixo para ver as opções**'
 
-    return;
-  }
+        )
 
-  // ======================================
-  // CRIAR TICKET
-  // ======================================
+        .setFooter({
+          text: 'Medusa Store • Sistema de Tickets'
+        });
 
-  if (
-    interaction.isStringSelectMenu() &&
-    interaction.customId === "ticket_category"
-  ) {
-
-    const category = interaction.values[0];
-
-    const names = {
-      middleman: "middleman",
-      suporte: "suporte",
-      outros: "outros",
-      parcerias: "parcerias",
-      recompensa: "recompensa",
-      duvidas: "duvidas",
-      seller: "seller"
-    };
-
-    const display = {
-      middleman: "⚡ Middleman",
-      suporte: "🛠️ Suporte",
-      outros: "📦 Outros",
-      parcerias: "🤝 Parcerias",
-      recompensa: "🎁 Resgatar Recompensa",
-      duvidas: "❓ Dúvidas",
-      seller: "🛒 Seller"
-    };
-
-    // Impedir ticket duplicado
-
-    const existingTicket =
-      interaction.guild.channels.cache.find(
-        channel =>
-          channel.type === ChannelType.GuildText &&
-          channel.topic &&
-          channel.topic.includes(
-            `USER:${interaction.user.id}`
-          )
-      );
-
-    if (existingTicket) {
-
-      return interaction.reply({
-        content:
-          `❌ Você já possui um ticket aberto: ${existingTicket}`,
-        ephemeral: true
-      });
-    }
-
-    // ====================================
-    // PERMISSÕES
-    // ====================================
-
-    const permissions = [
-      {
-        id: interaction.guild.id,
-
-        deny: [
-          PermissionFlagsBits.ViewChannel
-        ]
-      },
-
-      {
-        id: interaction.user.id,
-
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory
-        ]
-      },
-
-      ...STAFF_ROLE_IDS.map(roleId => ({
-        id: roleId,
-
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.ManageMessages
-        ]
-      }))
-    ];
-
-    // ====================================
-    // CRIAR CANAL
-    // ====================================
-
-    const channel =
-      await interaction.guild.channels.create({
-
-        name:
-          `${names[category]}-${interaction.user.username}`
-            .toLowerCase()
-            .replace(/[^a-z0-9-]/g, ""),
-
-        type: ChannelType.GuildText,
-
-        topic:
-          `USER:${interaction.user.id} | ` +
-          `CATEGORY:${category} | ` +
-          `CLAIMED:null`,
-
-        permissionOverwrites: permissions
-      });
-
-    // ====================================
-    // EMBED DO TICKET
-    // ====================================
-
-    const ticketEmbed = new EmbedBuilder()
-      .setTitle("🎫・ATENDIMENTO | MEDUSA STORE")
-      .setDescription(
-
-        `Olá ${interaction.user}!\n\n` +
-
-        `**📂 Categoria**\n` +
-        `${display[category]}\n\n` +
-
-        `**👤 Responsável**\n` +
-        `Nenhum staff assumiu ainda.\n\n` +
-
-        `**📌 Atendimento**\n` +
-        `Explique sua situação com detalhes e aguarde ` +
-        `um membro da equipe.\n\n` +
-
-        `🔒 Este atendimento é privado.`
-      )
-      .setFooter({
-        text: "Medusa Store • Sistema de Tickets"
-      });
-
-    // ====================================
-    // BOTÕES
-    // ====================================
-
-    const row =
-      new ActionRowBuilder()
+      const botao = new ActionRowBuilder()
         .addComponents(
 
           new ButtonBuilder()
-            .setCustomId("claim_ticket")
-            .setLabel("👤 Assumir")
-            .setStyle(ButtonStyle.Success),
+            .setCustomId('abrir_opcoes_ticket')
+            .setLabel('Clique aqui para ver as opções')
+            .setEmoji('➡️')
+            .setStyle(ButtonStyle.Primary)
 
-          new ButtonBuilder()
-            .setCustomId("add_member")
-            .setLabel("➕ Adicionar Membro")
-            .setStyle(ButtonStyle.Primary),
-
-          new ButtonBuilder()
-            .setCustomId("release_ticket")
-            .setLabel("🔓 Liberar")
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(true),
-
-          new ButtonBuilder()
-            .setCustomId("close_ticket")
-            .setLabel("🔒 Fechar")
-            .setStyle(ButtonStyle.Danger)
         );
 
-    const staffMentions =
-      STAFF_ROLE_IDS
-        .map(id => `<@&${id}>`)
-        .join(" ");
-
-    await channel.send({
-
-      content:
-        `${interaction.user} ${staffMentions}`,
-
-      embeds: [
-        ticketEmbed
-      ],
-
-      components: [
-        row
-      ]
-    });
-
-    await interaction.reply({
-
-      content:
-        `✅ Seu ticket foi criado: ${channel}`,
-
-      ephemeral: true
-    });
-
-    return;
-  }
-
-  // ======================================
-  // ASSUMIR TICKET
-  // ======================================
-
-  if (
-    interaction.isButton() &&
-    interaction.customId === "claim_ticket"
-  ) {
-
-    if (!isStaff(interaction)) {
-
       return interaction.reply({
-        content:
-          "❌ Apenas a equipe pode assumir tickets.",
-        ephemeral: true
+
+        embeds: [embed],
+
+        components: [botao]
+
       });
+
     }
 
-    const topic =
-      interaction.channel.topic || "";
-
-    const match =
-      topic.match(/CLAIMED:([^ ]+)/);
-
-    const claimed =
-      match ? match[1] : "null";
-
-    if (claimed !== "null") {
-
-      return interaction.reply({
-        content:
-          `❌ Este ticket já foi assumido por <@${claimed}>.`,
-        ephemeral: true
-      });
-    }
-
-    // Salvar responsável
-
-    const newTopic =
-      topic.replace(
-        /CLAIMED:[^ ]+/,
-        `CLAIMED:${interaction.user.id}`
-      );
-
-    await interaction.channel.setTopic(newTopic);
-
-    // Procurar mensagem principal
-
-    const messages =
-      await interaction.channel.messages.fetch({
-        limit: 20
-      });
-
-    const ticketMessage =
-      messages.find(
-        message =>
-          message.author.id === client.user.id &&
-          message.embeds.length > 0
-      );
-
-    if (ticketMessage) {
-
-      const oldEmbed =
-        ticketMessage.embeds[0];
-
-      const oldDescription =
-        oldEmbed.description || "";
-
-      // Atualizar responsável
-
-      const newDescription =
-        oldDescription.replace(
-          /(\*\*👤 Responsável\*\*\n)(.*)/,
-          `$1${interaction.user}`
-        );
-
-      const newEmbed =
-        EmbedBuilder
-          .from(oldEmbed)
-          .setDescription(newDescription);
-
-      // Novos botões
-
-      const claimButton =
-        new ButtonBuilder()
-          .setCustomId("claim_ticket")
-          .setLabel("👤 Assumido")
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(true);
-
-      const addButton =
-        new ButtonBuilder()
-          .setCustomId("add_member")
-          .setLabel("➕ Adicionar Membro")
-          .setStyle(ButtonStyle.Primary);
-
-      const releaseButton =
-        new ButtonBuilder()
-          .setCustomId("release_ticket")
-          .setLabel("🔓 Liberar")
-          .setStyle(ButtonStyle.Secondary);
-
-      const closeButton =
-        new ButtonBuilder()
-          .setCustomId("close_ticket")
-          .setLabel("🔒 Fechar")
-          .setStyle(ButtonStyle.Danger);
-
-      const newRow =
-        new ActionRowBuilder()
-          .addComponents(
-            claimButton,
-            addButton,
-            releaseButton,
-            closeButton
-          );
-
-      await ticketMessage.edit({
-        embeds: [newEmbed],
-        components: [newRow]
-      });
-    }
-
-    await interaction.reply(
-      `👤 ${interaction.user} **assumiu este ticket** e agora é o responsável pelo atendimento.`
-    );
-
-    return;
-  }
-
-  // ======================================
-  // ADICIONAR MEMBRO
-  // ======================================
-
-  if (
-    interaction.isButton() &&
-    interaction.customId === "add_member"
-  ) {
-
-    if (!isStaff(interaction)) {
-
-      return interaction.reply({
-        content:
-          "❌ Apenas a equipe pode adicionar membros.",
-        ephemeral: true
-      });
-    }
-
-    const modal =
-      new ModalBuilder()
-        .setCustomId("add_member_modal")
-        .setTitle("Adicionar Membro");
-
-    const input =
-      new TextInputBuilder()
-        .setCustomId("user_id")
-        .setLabel("ID do usuário")
-        .setPlaceholder(
-          "Ex: 123456789012345678"
-        )
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(17)
-        .setMaxLength(20);
-
-    modal.addComponents(
-      new ActionRowBuilder()
-        .addComponents(input)
-    );
-
-    await interaction.showModal(modal);
-
-    return;
-  }
-
-  // ======================================
-  // MODAL ADICIONAR MEMBRO
-  // ======================================
-
-  if (
-    interaction.isModalSubmit() &&
-    interaction.customId === "add_member_modal"
-  ) {
-
-    if (!isStaff(interaction)) {
-
-      return interaction.reply({
-        content:
-          "❌ Apenas a equipe pode adicionar membros.",
-        ephemeral: true
-      });
-    }
-
-    const userId =
-      interaction.fields
-        .getTextInputValue("user_id")
-        .trim();
-
-    try {
-
-      const member =
-        await interaction.guild.members.fetch(userId);
-
-      await interaction.channel
-        .permissionOverwrites.edit(
-          member.id,
-          {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true
-          }
-        );
-
-      await interaction.reply(
-        `✅ ${member} foi adicionado ao ticket.`
-      );
-
-    } catch (error) {
-
-      console.error(error);
-
-      await interaction.reply({
-        content:
-          "❌ Não encontrei esse usuário neste servidor. Verifique o ID.",
-        ephemeral: true
-      });
-    }
-
-    return;
-  }
-
-  // ======================================
-  // LIBERAR TICKET
-  // ======================================
-
-  if (
-    interaction.isButton() &&
-    interaction.customId === "release_ticket"
-  ) {
-
-    if (!isStaff(interaction)) {
-
-      return interaction.reply({
-        content:
-          "❌ Apenas a equipe pode liberar tickets.",
-        ephemeral: true
-      });
-    }
-
-    const topic =
-      interaction.channel.topic || "";
-
-    const match =
-      topic.match(/CLAIMED:([^ ]+)/);
-
-    const claimed =
-      match ? match[1] : "null";
-
-    if (claimed === "null") {
-
-      return interaction.reply({
-        content:
-          "❌ Este ticket não está assumido.",
-        ephemeral: true
-      });
-    }
-
-    // Somente quem assumiu pode liberar
-
-    if (claimed !== interaction.user.id) {
-
-      return interaction.reply({
-        content:
-          "❌ Apenas o staff responsável pode liberar este ticket.",
-        ephemeral: true
-      });
-    }
-
-    await interaction.channel.setTopic(
-      topic.replace(
-        /CLAIMED:[^ ]+/,
-        "CLAIMED:null"
-      )
-    );
-
-    // Procurar painel
-
-    const messages =
-      await interaction.channel.messages.fetch({
-        limit: 20
-      });
-
-    const ticketMessage =
-      messages.find(
-        message =>
-          message.author.id === client.user.id &&
-          message.embeds.length > 0
-      );
-
-    if (ticketMessage) {
-
-      const oldEmbed =
-        ticketMessage.embeds[0];
-
-      const oldDescription =
-        oldEmbed.description || "";
-
-      const newDescription =
-        oldDescription.replace(
-          /(\*\*👤 Responsável\*\*\n)(.*)/,
-          "$1Nenhum staff assumiu ainda."
-        );
-
-      const newEmbed =
-        EmbedBuilder
-          .from(oldEmbed)
-          .setDescription(newDescription);
-
-      const claimButton =
-        new ButtonBuilder()
-          .setCustomId("claim_ticket")
-          .setLabel("👤 Assumir")
-          .setStyle(ButtonStyle.Success);
-
-      const addButton =
-        new ButtonBuilder()
-          .setCustomId("add_member")
-          .setLabel("➕ Adicionar Membro")
-          .setStyle(ButtonStyle.Primary);
-
-      const releaseButton =
-        new ButtonBuilder()
-          .setCustomId("release_ticket")
-          .setLabel("🔓 Liberar")
-          .setStyle(ButtonStyle.Secondary)
-          .setDisabled(true);
-
-      const closeButton =
-        new ButtonBuilder()
-          .setCustomId("close_ticket")
-          .setLabel("🔒 Fechar")
-          .setStyle(ButtonStyle.Danger);
-
-      const newRow =
-        new ActionRowBuilder()
-          .addComponents(
-            claimButton,
-            addButton,
-            releaseButton,
-            closeButton
-          );
-
-      await ticketMessage.edit({
-        embeds: [newEmbed],
-        components: [newRow]
-      });
-    }
-
-    await interaction.reply(
-      `🔓 ${interaction.user} **liberou o ticket**. Agora outro membro da equipe pode assumi-lo.`
-    );
-
-    return;
-  }
-
-  // ======================================
-  // FECHAR TICKET
-  // ======================================
-
-  if (
-    interaction.isButton() &&
-    interaction.customId === "close_ticket"
-  ) {
-
-    const staff =
-      isStaff(interaction);
-
-    const topic =
-      interaction.channel.topic || "";
-
-    const match =
-      topic.match(/USER:(\d+)/);
-
-    const owner =
-      match ? match[1] : null;
+    // ==========================================
+    // ABRIR MENU
+    // ==========================================
 
     if (
-      !staff &&
-      owner !== interaction.user.id
+      interaction.isButton() &&
+      interaction.customId === 'abrir_opcoes_ticket'
     ) {
 
+      const menu = new StringSelectMenuBuilder()
+
+        .setCustomId('escolher_categoria_ticket')
+
+        .setPlaceholder(
+          '🎫 Selecione uma categoria'
+        )
+
+        .addOptions(
+
+          {
+            label: 'Middleman',
+            description: 'Solicitar um Middleman',
+            value: 'middleman',
+            emoji: '🔐'
+          },
+
+          {
+            label: 'Suporte',
+            description: 'Precisa de ajuda?',
+            value: 'suporte',
+            emoji: '🛠️'
+          },
+
+          {
+            label: 'Outros',
+            description: 'Outros assuntos',
+            value: 'outros',
+            emoji: '📦'
+          },
+
+          {
+            label: 'Parceria',
+            description: 'Solicitar parceria',
+            value: 'parceria',
+            emoji: '🤝'
+          },
+
+          {
+            label: 'Resgatar Recompensa',
+            description: 'Resgatar seu prêmio',
+            value: 'recompensa',
+            emoji: '🎁'
+          },
+
+          {
+            label: 'Dúvidas',
+            description: 'Tirar dúvidas',
+            value: 'duvidas',
+            emoji: '❓'
+          },
+
+          {
+            label: 'Seller',
+            description: 'Assuntos relacionados a vendas',
+            value: 'seller',
+            emoji: '🛒'
+          }
+
+        );
+
+      const row = new ActionRowBuilder()
+        .addComponents(menu);
+
       return interaction.reply({
+
         content:
-          "❌ Você não pode fechar este ticket.",
+          '🎫 **Selecione o motivo do seu atendimento:**',
+
+        components: [row],
+
         ephemeral: true
+
       });
+
     }
 
-    await interaction.reply(
-      "🔒 Este ticket será fechado em **5 segundos**."
+    // ==========================================
+    // CRIAR TICKET
+    // ==========================================
+
+    if (
+      interaction.isStringSelectMenu() &&
+      interaction.customId === 'escolher_categoria_ticket'
+    ) {
+
+      const categoria =
+        interaction.values[0];
+
+      const dados =
+        categorias[categoria];
+
+      if (!dados) {
+
+        return interaction.reply({
+
+          content:
+            '❌ Categoria inválida.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+      // Verifica se já existe ticket
+      const ticketExistente =
+        tickets.get(interaction.user.id);
+
+      if (ticketExistente) {
+
+        const canal =
+          interaction.guild.channels.cache.get(
+            ticketExistente.channelId
+          );
+
+        if (canal) {
+
+          return interaction.update({
+
+            content:
+              `❌ Você já possui um ticket aberto: ${canal}`,
+
+            components: []
+
+          });
+
+        }
+
+        tickets.delete(
+          interaction.user.id
+        );
+
+      }
+
+      // Nome do canal
+      const nomeCanal =
+        `${categoria}-${interaction.user.username}`
+          .toLowerCase()
+          .replace(/[^a-z0-9-_]/g, '')
+          .slice(0, 90);
+
+      // Criar canal
+      const canal =
+        await interaction.guild.channels.create({
+
+          name: nomeCanal,
+
+          type: ChannelType.GuildText,
+
+          permissionOverwrites: [
+
+            {
+              id:
+                interaction.guild.roles.everyone.id,
+
+              deny: [
+                PermissionFlagsBits.ViewChannel
+              ]
+
+            },
+
+            {
+              id:
+                interaction.user.id,
+
+              allow: [
+                PermissionFlagsBits.ViewChannel,
+                PermissionFlagsBits.SendMessages,
+                PermissionFlagsBits.ReadMessageHistory,
+                PermissionFlagsBits.AttachFiles
+              ]
+
+            }
+
+          ]
+
+        });
+
+      tickets.set(
+        interaction.user.id,
+        {
+          channelId: canal.id,
+          category: categoria,
+          claimedBy: null
+        }
+      );
+
+      // Embed do ticket
+      const embed =
+        new EmbedBuilder()
+
+          .setTitle(
+            `${dados.emoji} ${dados.nome.toUpperCase()}`
+          )
+
+          .setDescription(
+
+            `Olá, ${interaction.user}!\n\n` +
+
+            `Seu atendimento de **${dados.nome}** foi criado.\n\n` +
+
+            '╭╌╌╌⪼ 📌 **INFORMAÇÕES**\n' +
+            '│\n' +
+            `╰╌╌╌≫ Categoria: **${dados.nome}**\n\n` +
+
+            'Aguarde um membro da equipe responder.\n' +
+            'Explique seu problema de forma clara para que possamos ajudar.\n\n' +
+
+            '🔒 **Este canal é privado.**'
+
+          )
+
+          .setFooter({
+            text: 'Medusa Store • Atendimento'
+          });
+
+      // Botões
+      const botoes =
+        new ActionRowBuilder()
+          .addComponents(
+
+            new ButtonBuilder()
+              .setCustomId('assumir_ticket')
+              .setLabel('Assumir')
+              .setEmoji('🙋')
+              .setStyle(ButtonStyle.Success),
+
+            new ButtonBuilder()
+              .setCustomId('liberar_ticket')
+              .setLabel('Liberar')
+              .setEmoji('🔓')
+              .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+              .setCustomId('adicionar_membro')
+              .setLabel('Adicionar')
+              .setEmoji('➕')
+              .setStyle(ButtonStyle.Primary),
+
+            new ButtonBuilder()
+              .setCustomId('fechar_ticket')
+              .setLabel('Fechar')
+              .setEmoji('🔒')
+              .setStyle(ButtonStyle.Danger)
+
+          );
+
+      await canal.send({
+
+        content:
+          `${interaction.user}`,
+
+        embeds: [embed],
+
+        components: [botoes]
+
+      });
+
+      return interaction.update({
+
+        content:
+          `✅ Seu ticket foi criado: ${canal}`,
+
+        components: []
+
+      });
+
+    }
+
+    // ==========================================
+    // ASSUMIR TICKET
+    // ==========================================
+
+    if (
+      interaction.isButton() &&
+      interaction.customId === 'assumir_ticket'
+    ) {
+
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageChannels
+        )
+      ) {
+
+        return interaction.reply({
+
+          content:
+            '❌ Você não possui permissão para assumir tickets.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+      const ticket =
+        [...tickets.entries()].find(
+          ([, data]) =>
+            data.channelId ===
+            interaction.channel.id
+        );
+
+      if (!ticket) {
+
+        return interaction.reply({
+
+          content:
+            '❌ Este ticket não foi encontrado.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+      const [userId, dados] =
+        ticket;
+
+      dados.claimedBy =
+        interaction.user.id;
+
+      tickets.set(
+        userId,
+        dados
+      );
+
+      await interaction.channel.send({
+
+        content:
+          `🙋 **Ticket assumido por ${interaction.user}.**`
+
+      });
+
+      return interaction.reply({
+
+        content:
+          '✅ Você assumiu este ticket.',
+
+        ephemeral: true
+
+      });
+
+    }
+
+    // ==========================================
+    // LIBERAR TICKET
+    // ==========================================
+
+    if (
+      interaction.isButton() &&
+      interaction.customId === 'liberar_ticket'
+    ) {
+
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageChannels
+        )
+      ) {
+
+        return interaction.reply({
+
+          content:
+            '❌ Você não possui permissão para liberar tickets.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+      const ticket =
+        [...tickets.entries()].find(
+          ([, data]) =>
+            data.channelId ===
+            interaction.channel.id
+        );
+
+      if (!ticket) {
+
+        return interaction.reply({
+
+          content:
+            '❌ Este ticket não foi encontrado.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+      const [userId, dados] =
+        ticket;
+
+      dados.claimedBy = null;
+
+      tickets.set(
+        userId,
+        dados
+      );
+
+      await interaction.channel.send({
+
+        content:
+          '🔓 **Ticket liberado. Outro membro da Staff pode assumir.**'
+
+      });
+
+      return interaction.reply({
+
+        content:
+          '✅ Ticket liberado.',
+
+        ephemeral: true
+
+      });
+
+    }
+
+    // ==========================================
+    // ADICIONAR MEMBRO
+    // ==========================================
+
+    if (
+      interaction.isButton() &&
+      interaction.customId === 'adicionar_membro'
+    ) {
+
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageChannels
+        )
+      ) {
+
+        return interaction.reply({
+
+          content:
+            '❌ Apenas a Staff pode adicionar membros.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+      return interaction.reply({
+
+        content:
+          '➕ **Mencione o membro que deseja adicionar ao ticket.**\n\n' +
+          'Exemplo: `@Usuario`',
+
+        ephemeral: true
+
+      });
+
+    }
+
+    // ==========================================
+    // FECHAR TICKET
+    // ==========================================
+
+    if (
+      interaction.isButton() &&
+      interaction.customId === 'fechar_ticket'
+    ) {
+
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageChannels
+        )
+      ) {
+
+        return interaction.reply({
+
+          content:
+            '❌ Apenas a Staff pode fechar tickets.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+      const ticket =
+        [...tickets.entries()].find(
+          ([, data]) =>
+            data.channelId ===
+            interaction.channel.id
+        );
+
+      if (ticket) {
+
+        tickets.delete(
+          ticket[0]
+        );
+
+      }
+
+      await interaction.reply(
+        '🔒 **Fechando ticket...**'
+      );
+
+      setTimeout(() => {
+
+        interaction.channel
+          .delete()
+          .catch(() => {});
+
+      }, 1500);
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      '❌ ERRO NA INTERAÇÃO:',
+      error
     );
 
-    setTimeout(() => {
+    // Evita "Interação falhou"
+    try {
 
-      interaction.channel
-        .delete()
-        .catch(() => {});
+      if (interaction.replied) {
 
-    }, 5000);
+        await interaction.followUp({
 
-    return;
+          content:
+            '❌ Ocorreu um erro ao executar esta ação.',
+
+          ephemeral: true
+
+        });
+
+      } else if (interaction.deferred) {
+
+        await interaction.editReply({
+
+          content:
+            '❌ Ocorreu um erro ao executar esta ação.'
+
+        });
+
+      } else {
+
+        await interaction.reply({
+
+          content:
+            '❌ Ocorreu um erro ao executar esta ação.',
+
+          ephemeral: true
+
+        });
+
+      }
+
+    } catch (e) {
+
+      console.error(e);
+
+    }
+
   }
 
 });
 
-// ========================================
+// ================================
 // LOGIN
-// ========================================
+// ================================
+
+if (!TOKEN) {
+
+  console.error(
+    '❌ A variável TOKEN não foi encontrada.'
+  );
+
+  process.exit(1);
+
+}
+
+if (!CLIENT_ID) {
+
+  console.error(
+    '❌ A variável CLIENT_ID não foi encontrada.'
+  );
+
+  process.exit(1);
+
+}
 
 client.login(TOKEN);
